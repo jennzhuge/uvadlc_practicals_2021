@@ -264,11 +264,13 @@ def test_model(model, batch_size, data_dir, device, seed):
     corrupt_fns = [gaussian_noise_transform, gaussian_blur_transform, 
                    contrast_transform, jpeg_transform]
     for fn in corrupt_fns:
+        sev_accs = np.zeros(5)
         for severity in [1, 2, 3, 4, 5]:
             test_data = get_test_set(data_dir, transforms.Compose([fn(severity)]))
             test_loader = torch.utils.data.DataLoader(test_data, batch_size,
                                           shuffle = True, num_workers = 3)
-            test_results[str(fn) + str(severity)] = evaluate_model(model, test_loader, device)
+            sev_accs[severity - 1] = evaluate_model(model, test_loader, device)
+        test_results[fn.__name__] = sev_accs
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -349,4 +351,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     kwargs = vars(args)
     main(**kwargs)
-    #main(model_name = 'resnet18', lr = .01, batch_size = 128, epochs = 150, seed = 42, data_dir = 'data/')
+    #main(model_name = 'resnet18', lr = .01, batch_size = 128, epochs = 1, seed = 42, data_dir = 'data/')
