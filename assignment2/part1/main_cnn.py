@@ -255,17 +255,20 @@ def test_model(model, batch_size, data_dir, device, seed):
     #######################
     set_seed(seed)
     test_results = {}
-    corrupt_fns = [gaussian_noise_transform, gaussian_blur_tranform, 
-                   contrast_tranform, jpeg_transform]
     
-    test_results['plain'] = get_test_set(data_dir)
+    plain_data = get_test_set(data_dir)
+    plain_loader = torch.utils.data.DataLoader(plain_data, batch_size,
+                                          shuffle = True, num_workers = 3)
+    test_results['plain'] = evaluate_model(model, plain_loader, device)
     
+    corrupt_fns = [gaussian_noise_transform, gaussian_blur_transform, 
+                   contrast_transform, jpeg_transform]
     for fn in corrupt_fns:
         for severity in [1, 2, 3, 4, 5]:
-            test_set = get_test_set(data_dir, transforms.Compose([fn(severity)]))
+            test_data = get_test_set(data_dir, transforms.Compose([fn(severity)]))
             test_loader = torch.utils.data.DataLoader(test_data, batch_size,
                                           shuffle = True, num_workers = 3)
-            test_results[str(fn)] = evaluate_model(model, test_loader, device)
+            test_results[str(fn, severity)] = evaluate_model(model, test_loader, device)
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -296,6 +299,7 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed):
     #######################
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
+    print(torch.cuda.is_available())
     
     # Check for existing model, if none train
     filename = 'best_model.sav' 
@@ -304,12 +308,15 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed):
     else: best_mod = pickle.load(open(filename, 'rb'))
     
     # Test best model
-    results = test_model(model, batch_size, data_dir, device, seed)
-    torch.save(results, "results.txt")
+    filename = 'results.txt' 
+    if not os.path.isfile(filename):
+        results = test_model(best_mod, batch_size, data_dir, device, seed)
+        torch.save(results, filename)
+    else: results = torch.load(filename)
+    print(results)
     #######################
     # END OF YOUR CODE    #
     #######################
-
 
 
 if __name__ == '__main__':
@@ -341,5 +348,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     kwargs = vars(args)
-    main(**kwargs)
-    # main(debug, .01, 64, 5, 42, 'data/')
+    # main(**kwargs)
+    main(model_name = 'resnet18', lr = .01, batch_size = 128, epochs = 150, seed = 42, data_dir = 'data/')
