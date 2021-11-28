@@ -341,5 +341,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     kwargs = vars(args)
-    # main(**kwargs)
-    main(debug, .01, 64, 5, 42, 'data/')
+    main(**kwargs)
+    # main(debug, .01, 64, 5, 42, 'data/')
