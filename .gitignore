@@ -129,4 +129,5 @@ dmypy.json
 .pyre/
 
 # Assignment 1 dataset
-assignment_1/data/
+assignment_1_13567748/data/
+assignment2/part1/data/

@@ -21,6 +21,8 @@ import os
 import json
 import argparse
 import numpy as np
+import pickle
+from copy import deepcopy
 
 import torch
 import torch.nn as nn
@@ -104,21 +106,86 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
     #######################
     # PUT YOUR CODE HERE  #
     #######################
+    model = get_model(model)
+    model.to(device)
+    input_size = 3*32*32
+    num_classes = 10
     
     # Load the datasets
-    pass
-
+    train_data, val_data = get_train_validation_set(data_dir)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size,
+                                          shuffle = True, num_workers = 3)
+    val_loader = torch.utils.data.DataLoader(val_data, batch_size,
+                                          shuffle = True, num_workers = 3)
+    test_data = get_test_set(data_dir)
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size,
+                                          shuffle = True, num_workers = 3)
+    
     # Initialize the optimizers and learning rate scheduler. 
     # We provide a recommend setup, which you are allowed to change if interested.
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr,
-                                momentum=0.9, weight_decay=5e-4)
+    loss_module = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[90, 135], gamma=0.1)
     
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
-    pass
+    train_loss = np.zeros(epochs)
+    val_loss =  np.zeros(epochs)
+    train_accuracies = np.zeros(epochs)
+    val_accuracies = np.zeros(epochs)
+    best_i = 0
+    best_model = deepcopy(model)
+
+    for epoch in range(epochs): 
+        model.train()
+        train_running_loss = 0.0
+
+        for images, labels in train_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            images = torch.reshape(images, shape = (len(images), input_size))
+            optimizer.zero_grad()
+
+            #with torch.set_grad_enabled(True):
+                # forward prop
+            pred = model(images)
+            loss = loss_module(pred, labels)
+
+            # backward prop
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+            train_running_loss += loss.item()
+
+        train_loss[epoch] = train_running_loss/len(train_loader)
+        train_accuracies[epoch] = evaluate_model(model, train_loader, device)
+        
+        model.eval()
+        val_running_loss = 0.0
+        for images, labels in val_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            images = torch.reshape(images, shape = (len(images), input_size))
+            optimizer.zero_grad()
+
+            #with torch.no_grad():
+            pred = model(images)
+            loss = loss_module(pred, labels)
+
+            val_running_loss += loss.item()
+
+        val_loss[epoch] = val_running_loss/len(val_loader)
+        val_accuracies[epoch] = evaluate_model(model, val_loader, device)
+
+        if(val_accuracies[epoch] > val_accuracies[best_i]):
+            best_i = epoch
+            best_model = deepcopy(model)
+    
+    filename = checkpoint_name
+    pickle.dump(best_model, open(filename, 'wb'))
     
     # Load best model and return it.
-    pass
+    model = pickle.load(open(filename, 'rb'))
     
     #######################
     # END OF YOUR CODE    #
@@ -136,7 +203,6 @@ def evaluate_model(model, data_loader, device):
         device: Device to use for training.
     Returns:
         accuracy: The accuracy on the dataset.
-
     TODO:
     Implement the evaluation of the model on the dataset.
     Remember to set the model in evaluation mode and back to training mode in the training loop.
@@ -144,7 +210,22 @@ def evaluate_model(model, data_loader, device):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    pass
+    input_size = 3*32*32
+    accuracies = 0
+    total = 0
+    
+    with torch.no_grad():
+        for images, labels in data_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            images = torch.reshape(images, shape = (len(images), input_size))
+            
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            accuracies += (predicted == labels).sum().item()/len(labels)
+            total += 1
+
+    accuracy = accuracies/total
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -164,7 +245,6 @@ def test_model(model, batch_size, data_dir, device, seed):
     Returns:
         test_results: Dictionary containing an overview of the accuracies achieved on the different
                       corruption functions and the plain test set.
-
     TODO:
     Evaluate the model on the plain test set. Make use of the evaluate_model function.
     For each corruption function and severity, repeat the test. 
@@ -175,7 +255,17 @@ def test_model(model, batch_size, data_dir, device, seed):
     #######################
     set_seed(seed)
     test_results = {}
-    pass
+    corrupt_fns = [gaussian_noise_transform, gaussian_blur_tranform, 
+                   contrast_tranform, jpeg_transform]
+    
+    test_results['plain'] = get_test_set(data_dir)
+    
+    for fn in corrupt_fns:
+        for severity in [1, 2, 3, 4, 5]:
+            test_set = get_test_set(data_dir, transforms.Compose([fn(severity)]))
+            test_loader = torch.utils.data.DataLoader(test_data, batch_size,
+                                          shuffle = True, num_workers = 3)
+            test_results[str(fn)] = evaluate_model(model, test_loader, device)
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -195,7 +285,6 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed):
     Returns:
         test_results: Dictionary containing an overview of the accuracies achieved on the different
                       corruption functions and the plain test set.
-
     TODO:
     Load model according to the model name.
     Train the model (recommendation: check if you already have a saved model. If so, skip training and load it)
@@ -207,12 +296,19 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed):
     #######################
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
-    pass
+    
+    # Check for existing model, if none train
+    filename = 'best_model.sav' 
+    if not os.path.isfile(filename):
+        best_mod = train_model(model_name, lr, batch_size, epochs, data_dir, 'best_model.sav', device)
+    else: best_mod = pickle.load(open(filename, 'rb'))
+    
+    # Test best model
+    results = test_model(model, batch_size, data_dir, device, seed)
+    torch.save(results, "results.txt")
     #######################
     # END OF YOUR CODE    #
     #######################
-
-
 
 
 
@@ -245,4 +341,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     kwargs = vars(args)
-    main(**kwargs)
+    # main(**kwargs)
+    main(debug, .01, 64, 5, 42, 'data/')
