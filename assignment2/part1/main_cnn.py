@@ -348,5 +348,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     kwargs = vars(args)
-    # main(**kwargs)
-    main(model_name = 'resnet18', lr = .01, batch_size = 128, epochs = 150, seed = 42, data_dir = 'data/')
+    main(**kwargs)
+    #main(model_name = 'resnet18', lr = .01, batch_size = 128, epochs = 150, seed = 42, data_dir = 'data/')
