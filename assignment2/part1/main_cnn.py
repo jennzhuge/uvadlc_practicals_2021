@@ -142,7 +142,7 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
         for images, labels in train_loader:
             images = images.to(device)
             labels = labels.to(device)
-            images = torch.reshape(images, shape = (len(images), input_size))
+            #images = torch.reshape(images, shape = (len(images), input_size))
             optimizer.zero_grad()
 
             #with torch.set_grad_enabled(True):
@@ -165,7 +165,7 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
         for images, labels in val_loader:
             images = images.to(device)
             labels = labels.to(device)
-            images = torch.reshape(images, shape = (len(images), input_size))
+            #images = torch.reshape(images, shape = (len(images), input_size))
             optimizer.zero_grad()
 
             #with torch.no_grad():
@@ -218,7 +218,7 @@ def evaluate_model(model, data_loader, device):
         for images, labels in data_loader:
             images = images.to(device)
             labels = labels.to(device)
-            images = torch.reshape(images, shape = (len(images), input_size))
+            #images = torch.reshape(images, shape = (len(images), input_size))
             
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
@@ -268,7 +268,7 @@ def test_model(model, batch_size, data_dir, device, seed):
             test_data = get_test_set(data_dir, transforms.Compose([fn(severity)]))
             test_loader = torch.utils.data.DataLoader(test_data, batch_size,
                                           shuffle = True, num_workers = 3)
-            test_results[str(fn, severity)] = evaluate_model(model, test_loader, device)
+            test_results[str(fn) + str(severity)] = evaluate_model(model, test_loader, device)
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -302,13 +302,13 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed):
     print(torch.cuda.is_available())
     
     # Check for existing model, if none train
-    filename = 'best_model.sav' 
+    filename = model_name + 'best_model.sav' 
     if not os.path.isfile(filename):
-        best_mod = train_model(model_name, lr, batch_size, epochs, data_dir, 'best_model.sav', device)
+        best_mod = train_model(model_name, lr, batch_size, epochs, data_dir, filename, device)
     else: best_mod = pickle.load(open(filename, 'rb'))
     
     # Test best model
-    filename = 'results.txt' 
+    filename = model_name + 'results.txt' 
     if not os.path.isfile(filename):
         results = test_model(best_mod, batch_size, data_dir, device, seed)
         torch.save(results, filename)
@@ -349,4 +349,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     kwargs = vars(args)
     # main(**kwargs)
-    main(model_name = 'resnet18', lr = .01, batch_size = 128, epochs = 150, seed = 42, data_dir = 'data/')
+    main(model_name = 'resnet18', lr = .01, batch_size = 128, epochs = 2, seed = 42, data_dir = 'data/')
