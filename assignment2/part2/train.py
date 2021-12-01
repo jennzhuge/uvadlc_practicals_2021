@@ -23,6 +23,7 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import pickle
 
 from dataset import TextDataset, text_collate_fn
 from model import TextGenerationModel
@@ -44,7 +45,6 @@ def set_seed(seed):
 def train(args):
     """
     Trains an LSTM model on a text dataset
-    
     Args:
         args: Namespace object of the command line arguments as 
               specified in the main function.
@@ -62,19 +62,69 @@ def train(args):
     # PUT YOUR CODE HERE  #
     #######################
     set_seed(args.seed)
-    # Load dataset
-    # The data loader returns pairs of tensors (input, targets) where inputs are the
-    # input characters, and targets the labels, i.e. the text shifted by one.
+    
+    # Load dataset, the data loader returns pairs of tensors (input, targets) where inputs 
+    # are the input characters, and targets are the labels, i.e. the text shifted by one.
     dataset = TextDataset(args.txt_file, args.input_seq_length)
-    data_loader = DataLoader(dataset, args.batch_size, 
-                             shuffle=True, drop_last=True, pin_memory=True,
-                             collate_fn=text_collate_fn)
+    args.dataset = dataset
+    args.vocabulary_size = dataset._vocabulary_size
+    data_loader = DataLoader(dataset, args.batch_size, shuffle=True, drop_last=True, 
+                             pin_memory=True, collate_fn=text_collate_fn)
     # Create model
-    model = ...
+    model = TextGenerationModel(args)
+    model = model.to(args.device)
+    
     # Create optimizer
-    optimizer = ...
+    optimizer = optim.Adam(model.parameters(), args.lr)
+    loss_module = nn.CrossEntropyLoss()
+    loss_module = loss_module.to(args.device)
+    
     # Training loop
-    pass
+    train_loss = np.zeros(args.num_epochs)
+    train_accuracies = np.zeros(args.num_epochs)
+    for epoch in range(args.num_epochs):
+        model.train()
+        train_running_loss = 0.0
+        accuracies = 0
+        batches = 0
+
+        for chars, labels in data_loader:
+            chars = chars.to(args.device)
+            labels = labels.to(args.device)
+            optimizer.zero_grad()
+
+            pred = model(chars)
+            pred = pred.permute(0, 2, 1)
+            loss = loss_module(pred, labels)
+
+            loss.backward()
+            optimizer.step()
+            
+            train_running_loss += loss.item()
+            
+            _, predicted = torch.max(pred.data, 1)
+            accuracies += (predicted == labels).float().mean()
+            batches += 1
+
+        train_loss[epoch] = train_running_loss/len(data_loader)
+        train_accuracies[epoch] = accuracies/len(data_loader)
+        
+        # Sample
+        if args.sampling:
+            if epoch in [1, 5, 19]:
+                for temp in [.5, 1.0, 2.0]:
+                    print(self.sample(temperature = temp))
+        print(epoch)
+    
+    # save model
+    filename = 'lstm_model.sav'
+    pickle.dump(model, open(filename, 'wb'))
+    
+    # save loss and accuracy
+    results = {'loss': train_loss, 'accs': train_accuracies}
+    print(results)
+    torch.save(results, 'lossAcc.txt')
+        
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -97,7 +147,10 @@ if __name__ == "__main__":
 
     # Additional arguments. Feel free to add more arguments
     parser.add_argument('--seed', type=int, default=0, help='Seed for pseudo-random number generator')
+    parser.add_argument('--sampling', type=bool, default=False, help='True if we want to print samples')
 
     args = parser.parse_args()
+    #args.device = "cuda"
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Use GPU if available, else use CPU
     train(args)
+

@@ -56,17 +56,26 @@ def plot_models(results_filename, model, resnet18_efs):
     
     results = torch.load(results_filename)
     severity = [1, 2, 3, 4, 5]
+    renet18_cleane = 1 - resnet18_efs['plain']
+    
     efs = {}
+    ces = {}
+    rces = {}
 
-    for key, val in results.items():
-        es = {}
+    for i, (key, val) in renumerate(results.items()):
+        ce = np.zeros(5)
+        rce = np.zeros(5)
         if key == 'plain':
             efclean = 1 - val
             es['efclean'] = [efclean]
         else: 
-            rce = 0
-            ce = 0
-            plt.plot(severity, val, label = key)
+            sumefsc = np.sum(1 - val)
+            ce[i] = sumefsc/np.sum(1 - resnet18_efs[key])
+            np.sum((1 - val) - efclean)
+            rce[i] = np.sum((1 - resnet18_efs[key]) - resnet18clean)
+    
+    for rce_line in rces.items():
+        plt.plot(severity, val, label = key)
         
     plt.legend()
     plt.xlabel("Severity of Corruption")
