@@ -42,11 +42,20 @@ class MLP(nn.Module):
         TODO: 
         - define a simple MLP that operates on properly formatted QM9 data
         """
-
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        super().__init__()
+
+        self.layers = nn.ModuleList()
+        n_in = n_inputs
+        for n_out in n_hidden:
+            self.layers.append(nn.Linear(n_in, n_out))
+            if use_batch_norm:
+                self.layers.append(nn.BatchNorm1d(n_out))
+            self.layers.append(nn.ReLU())
+            n_in = n_out
+        self.layers.append(nn.Linear(n_in, n_classes))
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -55,17 +64,17 @@ class MLP(nn.Module):
         """
         Performs forward pass of the input. Here an input tensor x is transformed through
         several layer transformations.
-        
         Args:
             x: input to the network
         Returns:
             out: outputs of the network
         """
-
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        out = x
+        for layer in self.layers:
+            out = layer(out)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -80,61 +89,53 @@ class MLP(nn.Module):
 
 
 class GNN(nn.Module):
-    """implements a graphical neural network in pytorch. In particular, we will use pytorch geometric's nn_conv module so we can apply a neural network to the edges.
+    """
+    Implements a graphical neural network in pytorch. In particular,
+    we will use pytorch geometric's nn_conv module so we can apply a neural network to the edges.
     """
 
-    def __init__(
-        self,
-        n_node_features: int,
-        n_edge_features: int,
-        n_hidden: int,
-        n_output: int,
-        num_convolution_blocks: int,
-    ) -> None:
-        """create the gnn
-
+    def __init__(self, n_node_features: int, n_edge_features: int,
+                 n_hidden: int, n_output: int, num_convolution_blocks: int) -> None:
+        """
+        Create the gnn
         Args:
             n_node_features: input features on each node
             n_edge_features: input features on each edge
-            n_hidden: hidden features within the neural networks (embeddings, nodes after graph convolutions, etc.)
+            n_hidden: hidden features within the neural networks 
+                (embeddings, nodes after graph convolutions, etc.)
             n_output: how many output features
-            num_convolution_blocks: how many blocks convolutions should be performed. A block may include multiple convolutions
+            num_convolution_blocks: how many blocks convolutions should be performed. 
+                A block may include multiple convolutions
         
         TODO: 
-        - define a GNN which has the following structure: node embedding -> [ReLU -> RGCNConv -> ReLU -> MFConv] x num_convs -> Add-Pool -> Linear -> ReLU -> Linear
-        - One the data has been pooled, it may be beneficial to apply another MLP on the pooled data before predicing the output.
+        - define a GNN which has the following structure: 
+            node embedding -> [ReLU -> RGCNConv -> ReLU -> MFConv] x num_convs -> Add-Pool -> Linear -> ReLU -> Linear
+        - Once the data has been pooled, it may be beneficial to apply another MLP on the pooled data before predicing the output.
         """
-
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        super().__init__()
+
+        self.layers = nn.ModuleList()
         #######################
         # END OF YOUR CODE    #
         #######################
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        edge_index: torch.Tensor,
-        edge_attr: torch.Tensor,
-        batch_idx: torch.Tensor,
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor,
+                edge_attr: torch.Tensor, batch_idx: torch.Tensor) -> torch.Tensor:
         """
         Args:
             x: Input features per node
             edge_index: List of vertex index pairs representing the edges in the graph (PyTorch geometric notation)
             edge_attr: edge attributes (pytorch geometric notation)
             batch_idx: Index of batch element for each node
-
         Returns:
             prediction
 
         TODO: implement the forward pass being careful to apply MLPs only where they are allowed!
-
         Hint: remember to use global pooling.
         """
-
         #######################
         # PUT YOUR CODE HERE  #
         #######################
