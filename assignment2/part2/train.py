@@ -70,6 +70,13 @@ def train(args):
     args.vocabulary_size = dataset._vocabulary_size
     data_loader = DataLoader(dataset, args.batch_size, shuffle=True, drop_last=True, 
                              pin_memory=True, collate_fn=text_collate_fn)
+    
+    # Debug sample
+    # filename = 'lstm_model.sav' 
+    # model = pickle.load(open(filename, 'rb'))
+    # print(model.sample(temperature = 1))
+    # return
+    
     # Create model
     model = TextGenerationModel(args)
     model = model.to(args.device)
@@ -98,6 +105,7 @@ def train(args):
             loss = loss_module(pred, labels)
 
             loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
             optimizer.step()
             
             train_running_loss += loss.item()
@@ -111,19 +119,19 @@ def train(args):
         
         # Sample
         if args.sampling:
-            if epoch in [1, 5, 19]:
-                for temp in [.5, 1.0, 2.0]:
-                    print(self.sample(temperature = temp))
+            if epoch in [0, 5, 19]:
+                for temp in [0, .5, 1.0, 2.0]:
+                    print(model.sample(temperature = temp))
         print(epoch)
     
     # save model
-    filename = 'lstm_model.sav'
+    filename = 'lstm_model_sample.sav'
     pickle.dump(model, open(filename, 'wb'))
     
     # save loss and accuracy
     results = {'loss': train_loss, 'accs': train_accuracies}
     print(results)
-    torch.save(results, 'lossAcc.txt')
+    torch.save(results, 'lossAcc_sample.txt')
         
     #######################
     # END OF YOUR CODE    #
@@ -143,14 +151,16 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size to train with.')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate for the optimizer.')
     parser.add_argument('--num_epochs', type=int, default=20, help='Number of epochs to train for.')
+    #parser.add_argument('--num_epochs', type=int, default=1, help='Number of epochs to train for.')
     parser.add_argument('--clip_grad_norm', type=float, default=5.0, help='Gradient clipping norm')
 
     # Additional arguments. Feel free to add more arguments
     parser.add_argument('--seed', type=int, default=0, help='Seed for pseudo-random number generator')
-    parser.add_argument('--sampling', type=bool, default=False, help='True if we want to print samples')
+    #parser.add_argument('--sampling', type=bool, default=False, help='True if we want to print samples')
+    parser.add_argument('--sampling', type=bool, default=True, help='True if we want to print samples')
 
     args = parser.parse_args()
-    #args.device = "cuda"
+    #args.device = "cpu"
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Use GPU if available, else use CPU
     train(args)
 

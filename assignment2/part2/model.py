@@ -14,6 +14,7 @@
 # Date Adapted: 2021-11-11
 ###############################################################################
 import math
+import random
 import torch
 import torch.nn as nn
 
@@ -55,7 +56,7 @@ class LSTM(nn.Module):
         self.Woh = nn.Parameter(torch.Tensor(lstm_hidden_dim, lstm_hidden_dim))
         self.bo = nn.Parameter(torch.Tensor(lstm_hidden_dim, 1))
         
-        # self.device = 'cuda'
+        #self.device = 'cpu'
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         #######################
         # END OF YOUR CODE    #
@@ -164,6 +165,7 @@ class TextGenerationModel(nn.Module):
         self.lstm = LSTM(self.lstm_hidden_dim, self.embed_size)
         # self.lin = nn.Linear(self.lstm_hidden_dim, self.vocab_size).to(args.device)
         self.lin = nn.Linear(self.lstm_hidden_dim, self.vocab_size)
+        self.softmax = nn.Softmax()
         
         self.to(self.device)
         #######################
@@ -186,7 +188,7 @@ class TextGenerationModel(nn.Module):
         #######################
         embeds = self.embedder(x)
         # p(𝑡) = W𝑝 ℎh(𝑡) + b
-        p = self.lstm(embeds).to(self.device)
+        p = self.lstm(embeds)
         p = p.to(self.device)
         out = self.lin(p)
         return out 
@@ -194,7 +196,7 @@ class TextGenerationModel(nn.Module):
         # END OF YOUR CODE    #
         #######################
 
-    def sample(self, batch_size=5, sample_length=30, temperature=0.):
+    def sample(self, batch_size=5, sample_length=30, temperature=0):
         """
         Sampling from the text generation model.
         Args:
@@ -210,22 +212,33 @@ class TextGenerationModel(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        samples = torch.zeros(batch_size)
-        for sample in range(batch_size):
+        # samples = torch.zeros(batch_size)
+        samples = torch.randint(low = 0, high = self.vocab_size, size = (1, batch_size))
+        samples = samples.to(self.device)
+        #for sample in range(batch_size):
+            #first_char = torch.randint(low = 0, high = self.vocab_size, size = (1, 1))
+            #sample_is = first_char.to(self.device)
             # Set first character randomly
-            first_char = torch.randint(0, self.vocab_size)
-            sample_str = self.dataset.convert_to_string(first_char)
+            #sample_is[0] = random.randint(0, self.vocab_size)
+            #sample_str = self.dataset.convert_to_string(first_char)
             
-            for char in range(sample_length):
-                pred = self.model.forward(samplestr)
-                if temp == 0.:
-                    nexti = torch.max(pred)
-                else: nexti = ''
-                sample_str += self.dataset.convert_to_string(nexti)
+        for char in range(1, sample_length):
+            #print(samples)
+            pred = self.forward(samples)[-1, :, :]
+            if temperature == 0:
+                nexti = torch.argmax(pred, 1).unsqueeze(0)
+                #print(nexti)
+            else: 
+                nexti = torch.multinomial(self.softmax(pred/temperature), 1).T
+                # print(nexti.shape, samples.shape)
+            samples = torch.cat((samples, nexti), 0).to(self.device)
+            #print(samples[:, 1].tolist())
+        
+        results = [self.dataset.convert_to_string(samples[:, col].tolist()) for col in range(batch_size)]
                 
-            samples[sample] = sample_str
+            #samples[sample] = self.dataset.convert_to_string(samples.flatten().tolist())
             
-        return samples
+        return results
         #######################
         # END OF YOUR CODE    #
         #######################

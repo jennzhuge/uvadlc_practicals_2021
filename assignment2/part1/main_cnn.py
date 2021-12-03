@@ -222,7 +222,7 @@ def evaluate_model(model, data_loader, device):
             
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
-            accuracies += (predicted == labels).sum().item()/len(labels)
+            accuracies += (predicted == labels).float().mean()
             total += 1
 
     accuracy = accuracies/total
