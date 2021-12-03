@@ -116,7 +116,14 @@ class GNN(nn.Module):
         # PUT YOUR CODE HERE  #
         #######################
         super().__init__()
-
+        
+        self.embedder = nn.Embedding(self.vocab_size, self.embed_size)
+        self.relu = nn.ReLU()
+        self.rgcn = geom_nn.RGCNConv()
+        self.mf = geom_nn.MFConv()
+        self.addpool = 
+        self.lin = nn.Linear
+        
         self.layers = nn.ModuleList()
         #######################
         # END OF YOUR CODE    #

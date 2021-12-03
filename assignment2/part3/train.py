@@ -32,17 +32,13 @@ from networks import *
 
 def permute_indices(molecules: Batch) -> Batch:
     """permute the atoms within a molecule, but not across molecules
-
     Args:
         molecules: batch of molecules from pytorch geometric
-
     Returns:
         permuted molecules
     """
     # Permute the node indices within a molecule, but not across them.
-    ranges = [
-        (i, j) for i, j in zip(molecules.ptr.tolist(), molecules.ptr[1:].tolist())
-    ]
+    ranges = [(i, j) for i, j in zip(molecules.ptr.tolist(), molecules.ptr[1:].tolist())]
     permu = torch.cat([torch.arange(i, j)[torch.randperm(j - i)] for i, j in ranges])
 
     n_nodes = molecules.x.size(0)
@@ -54,24 +50,16 @@ def permute_indices(molecules: Batch) -> Batch:
     permuted.x = permuted.x[permu]
     # Below is the identity transform, by construction of our permutation.
     permuted.batch = permuted.batch[permu]
-    permuted.edge_index = (
-        permuted.edge_index.cpu()
-        .apply_(translation.get)
-        .to(molecules.edge_index.device)
-    )
+    permuted.edge_index = (permuted.edge_index.cpu().apply_(translation.get).to(molecules.edge_index.device))
     return permuted
 
 
-def compute_loss(
-    model: nn.Module, molecules: Batch, criterion: Callable
-) -> torch.Tensor:
+def compute_loss(model: nn.Module, molecules: Batch, criterion: Callable) -> torch.Tensor:
     """use the model to predict the target determined by molecules. loss computed by criterion.
-
     Args:
         model: trainable network
         molecules: batch of molecules from pytorch geometric
         criterion: callable which takes a prediction and the ground truth 
-
     Returns:
         loss
 
@@ -90,12 +78,9 @@ def compute_loss(
     return loss
 
 
-def evaluate_model(
-    model: nn.Module, data_loader: DataLoader, criterion: Callable, permute: bool
-) -> float:
+def evaluate_model(model: nn.Module, data_loader: DataLoader, criterion: Callable, permute: bool) -> float:
     """
     Performs the evaluation of the model on a given dataset.
-
     Args:
         model: trainable network
         data_loader: The data loader of the dataset to evaluate.
@@ -103,7 +88,6 @@ def evaluate_model(
         permute: whether to permute the atoms within a molecule
     Returns:
         avg_loss: scalar float, the average loss of the model on the dataset.
-
     Hint: make sure to return the average loss of the whole dataset, 
           independent of batch sizes (not all batches might be the same size).
     
@@ -124,11 +108,8 @@ def evaluate_model(
     return avg_loss
 
 
-def train(
-    model: nn.Module, lr: float, batch_size: int, epochs: int, seed: int, data_dir: str
-):
+def train(model: nn.Module, lr: float, batch_size: int, epochs: int, seed: int, data_dir: str):
     """a full training cycle of an mlp / gnn on qm9.
-
     Args:
         model: a differentiable pytorch module which estimates the U0 quantity
         lr: learning rate of optimizer
@@ -136,7 +117,6 @@ def train(
         epochs: number of epochs to optimize over
         seed: random seed
         data_dir: where to place the qm9 data
-
     Returns:
         model: the trained model which performed best on the validation set
         test_loss: the loss over the test set
@@ -152,7 +132,6 @@ def train(
     - Integrate _all_ input arguments of this function in your training. You are allowed to add
       additional input argument if you assign it a default value that represents the plain training
       (e.g. '..., new_param=False')
-    
     Hint: you can save your best model by deepcopy-ing it.
     """
     # Set the random seeds for reproducibility
@@ -171,23 +150,75 @@ def train(
         batch_size=batch_size,
         shuffle=True,
         drop_last=True,
-        exclude_keys=["pos", "idx", "z", "name"],
-    )
+        exclude_keys=["pos", "idx", "z", "name"])
     valid_dataloader = DataLoader(
-        valid, batch_size=batch_size, exclude_keys=["pos", "idx", "z", "name"]
-    )
+        valid, batch_size=batch_size, exclude_keys=["pos", "idx", "z", "name"])
     test_dataloader = DataLoader(
-        test, batch_size=batch_size, exclude_keys=["pos", "idx", "z", "name"]
-    )
+        test, batch_size=batch_size, exclude_keys=["pos", "idx", "z", "name"])
 
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-
+    # Create model
+    model = model.to(args.device)
+    
     # TODO: Initialize loss module and optimizer
-    criterion = ...
-    optimizer = ...
+    criterion = nn.CrossEntropyLoss().to(args.device)
+    optimizer = optim.Adam(model.parameters(), args.lr)
+    
     # TODO: Training loop including validation, using evaluate_model
+    train_loss = np.zeros(epochs)
+    val_loss =  np.zeros(epochs)
+    train_accuracies = np.zeros(epochs)
+    val_accuracies = np.zeros(epochs)
+    best_i = 0
+    best_model = deepcopy(model)
+
+    for epoch in range(epochs): 
+        model.train()
+        train_running_loss = 0.0
+
+        for images, labels in train_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            #images = torch.reshape(images, shape = (len(images), input_size))
+            optimizer.zero_grad()
+
+            #with torch.set_grad_enabled(True):
+                # forward prop
+            pred = model(images)
+            loss = loss_module(pred, labels)
+
+            # backward prop
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+            train_running_loss += loss.item()
+
+        train_loss[epoch] = train_running_loss/len(train_loader)
+        train_accuracies[epoch] = evaluate_model(model, train_loader, device)
+        
+        model.eval()
+        val_running_loss = 0.0
+        for images, labels in val_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            #images = torch.reshape(images, shape = (len(images), input_size))
+            optimizer.zero_grad()
+
+            #with torch.no_grad():
+            pred = model(images)
+            loss = loss_module(pred, labels)
+
+            val_running_loss += loss.item()
+
+        val_loss[epoch] = val_running_loss/len(val_loader)
+        val_accuracies[epoch] = evaluate_model(model, val_loader, device)
+
+        if(val_accuracies[epoch] > val_accuracies[best_i]):
+            best_i = epoch
+            best_model = deepcopy(model)
     # TODO: Do optimization, we used adam with amsgrad. (many should work)
     val_losses = ...
     # TODO: Test best model
@@ -195,8 +226,7 @@ def train(
     # TODO: Test best model against permuted indices
     permuted_test_loss = ...
     # TODO: Add any information you might want to save for plotting
-    logging_info = ...
-
+    logging_info = {"train_loss": train_loss, 'val_loss': val_loss, 'train_acc': train_accuracies}
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -205,6 +235,7 @@ def train(
 
 def main(**kwargs):
     """main handles the arguments, instantiates the correct model, tracks the results, and saves them."""
+    
     which_model = kwargs.pop("model")
     mlp_hidden_dims = kwargs.pop("mlp_hidden_dims")
     gnn_hidden_dims = kwargs.pop("gnn_hidden_dims")
@@ -216,20 +247,16 @@ def main(**kwargs):
     if which_model == "mlp":
         model = MLP(FLAT_INPUT_DIM, mlp_hidden_dims, 1)
     elif which_model == "gnn":
-        model = GNN(
-            n_node_features=Z_ONE_HOT_DIM,
-            n_edge_features=EDGE_ATTR_DIM,
-            n_hidden=gnn_hidden_dims,
-            n_output=1,
-            num_convolution_blocks=gnn_num_blocks,
-        )
+        model = GNN(n_node_features=Z_ONE_HOT_DIM,
+                    n_edge_features=EDGE_ATTR_DIM,
+                    n_hidden=gnn_hidden_dims,
+                    n_output=1,
+                    num_convolution_blocks=gnn_num_blocks)
     else:
         raise NotImplementedError("only mlp and gnn are possible models.")
 
     model.to(device)
-    model, test_loss, permuted_test_loss, val_losses, logging_info = train(
-        model, **kwargs
-    )
+    model, test_loss, permuted_test_loss, val_losses, logging_info = train(model, **kwargs)
 
     # plot the loss curve, etc. below.
 
