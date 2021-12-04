@@ -51,11 +51,9 @@ class MLP(nn.Module):
         n_in = n_inputs
         for n_out in n_hidden:
             self.layers.append(nn.Linear(n_in, n_out))
-            if use_batch_norm:
-                self.layers.append(nn.BatchNorm1d(n_out))
             self.layers.append(nn.ReLU())
             n_in = n_out
-        self.layers.append(nn.Linear(n_in, n_classes))
+        self.layers.append(nn.Linear(n_in, n_outputs))
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -117,14 +115,28 @@ class GNN(nn.Module):
         #######################
         super().__init__()
         
+        self.n_node_fts = n_node_features
+        self.n_edge_fts = n_edge_features
+        self.n_hid = n_hidden
+        self.n_out = n_output
+        self.n_blocks = num_convolutional_blocks
+        
         self.embedder = nn.Embedding(self.vocab_size, self.embed_size)
-        self.relu = nn.ReLU()
-        self.rgcn = geom_nn.RGCNConv()
-        self.mf = geom_nn.MFConv()
-        self.addpool = 
-        self.lin = nn.Linear
         
         self.layers = nn.ModuleList()
+        for conv_layer in range(num_convolutional_blocks):
+            self.layers.append(nn.ReLU())
+            self.layers.append(geom_nn.RGCNConv())
+            self.layers.append(nn.ReLU())
+            self.layers.append(geom_nn.MFConv())
+        self.layers.append(geom_nn.global_add_pool())
+        #self.layers.append(nn.Linear())
+        #self.layers.append(nn.ReLU())
+        #self.layers.append(nn.Linear(h_hidden, n_output))
+        self.layers.append(MLP(n_hidden, n_output))
+        
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #self.to(self.device)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -147,6 +159,8 @@ class GNN(nn.Module):
         # PUT YOUR CODE HERE  #
         #######################
         
+        for layer in self.layers():
+            out = layer(out)
         #######################
         # END OF YOUR CODE    #
         #######################

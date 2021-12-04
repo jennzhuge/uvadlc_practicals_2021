@@ -22,6 +22,7 @@ from typing import Callable
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch_geometric.data.batch import Batch
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
@@ -159,12 +160,10 @@ def train(model: nn.Module, lr: float, batch_size: int, epochs: int, seed: int, 
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    # Create model
-    model = model.to(args.device)
     
     # TODO: Initialize loss module and optimizer
-    criterion = nn.CrossEntropyLoss().to(args.device)
-    optimizer = optim.Adam(model.parameters(), args.lr)
+    criterion = nn.CrossEntropyLoss().to(model.device)
+    optimizer = optim.Adam(model.parameters(), lr)
     
     # TODO: Training loop including validation, using evaluate_model
     train_loss = np.zeros(epochs)
@@ -178,15 +177,19 @@ def train(model: nn.Module, lr: float, batch_size: int, epochs: int, seed: int, 
         model.train()
         train_running_loss = 0.0
 
-        for images, labels in train_loader:
-            images = images.to(device)
+        for batch in train_dataloader:
+            print(batch)
+            if model == 'mlp':
+                fts = train.get_mlp_features(batch)
+            else: fts = train.get_dense_adj(batch)
+            fts = fts.to(device)
+            labels = train.get_labels(batch)
             labels = labels.to(device)
-            #images = torch.reshape(images, shape = (len(images), input_size))
+            
             optimizer.zero_grad()
 
-            #with torch.set_grad_enabled(True):
-                # forward prop
-            pred = model(images)
+            # forward prop
+            pred = model(fts)
             loss = loss_module(pred, labels)
 
             # backward prop
@@ -195,9 +198,11 @@ def train(model: nn.Module, lr: float, batch_size: int, epochs: int, seed: int, 
             scheduler.step()
 
             train_running_loss += loss.item()
+            _, predicted = torch.max(pred.data, 1)
+            accuracies += (predicted == labels).float().mean()
 
-        train_loss[epoch] = train_running_loss/len(train_loader)
-        train_accuracies[epoch] = evaluate_model(model, train_loader, device)
+        train_loss[epoch] = train_running_loss/len(train_dataloader)
+        train_accuracies[epoch] = accuracies/len(train_dataloader)
         
         model.eval()
         val_running_loss = 0.0
@@ -213,12 +218,13 @@ def train(model: nn.Module, lr: float, batch_size: int, epochs: int, seed: int, 
 
             val_running_loss += loss.item()
 
-        val_loss[epoch] = val_running_loss/len(val_loader)
-        val_accuracies[epoch] = evaluate_model(model, val_loader, device)
+        val_loss[epoch] = val_running_loss/len(val_dataloader)
+        val_accuracies[epoch] = evaluate_model(model, val_dataloader, device)
 
         if(val_accuracies[epoch] > val_accuracies[best_i]):
             best_i = epoch
             best_model = deepcopy(model)
+            
     # TODO: Do optimization, we used adam with amsgrad. (many should work)
     val_losses = ...
     # TODO: Test best model

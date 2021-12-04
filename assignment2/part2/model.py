@@ -122,7 +122,7 @@ class LSTM(nn.Module):
             # h(𝑡) = tanh(c(𝑡)) ⊙ o(𝑡)
             h = self.tanh(c)*o
             self.prev_h = h
-            self.prev_h = c
+            self.prev_c = c
             hiddens[t] = h.T
             
         return hiddens
@@ -223,7 +223,7 @@ class TextGenerationModel(nn.Module):
             #sample_str = self.dataset.convert_to_string(first_char)
             
         for char in range(1, sample_length):
-            #print(samples)
+            #print(samples) USE C SOMEHOWcd 
             pred = self.forward(samples)[-1, :, :]
             if temperature == 0:
                 nexti = torch.argmax(pred, 1).unsqueeze(0)
