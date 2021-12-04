@@ -157,7 +157,7 @@ if __name__ == "__main__":
     # Additional arguments. Feel free to add more arguments
     parser.add_argument('--seed', type=int, default=0, help='Seed for pseudo-random number generator')
     #parser.add_argument('--sampling', type=bool, default=False, help='True if we want to print samples')
-    parser.add_argument('--sampling', type=bool, default=True, help='True if we want to print samples')
+    parser.add_argument('--sampling', type=bool, default=False, help='True if we want to print samples')
 
     args = parser.parse_args()
     #args.device = "cpu"
