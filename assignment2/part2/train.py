@@ -125,13 +125,13 @@ def train(args):
         print(epoch)
     
     # save model
-    filename = 'lstm_model_sample.sav'
+    filename = 'lstm_model.sav'
     pickle.dump(model, open(filename, 'wb'))
     
     # save loss and accuracy
     results = {'loss': train_loss, 'accs': train_accuracies}
     print(results)
-    torch.save(results, 'lossAcc_sample.txt')
+    torch.save(results, 'lossAcc.txt')
         
     #######################
     # END OF YOUR CODE    #
