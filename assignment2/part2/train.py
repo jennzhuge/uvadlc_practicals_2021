@@ -150,7 +150,7 @@ if __name__ == "__main__":
     # Training
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size to train with.')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate for the optimizer.')
-    parser.add_argument('--num_epochs', type=int, default=1, help='Number of epochs to train for.')
+    parser.add_argument('--num_epochs', type=int, default=20, help='Number of epochs to train for.')
     #parser.add_argument('--num_epochs', type=int, default=1, help='Number of epochs to train for.')
     parser.add_argument('--clip_grad_norm', type=float, default=5.0, help='Gradient clipping norm')
 
@@ -162,5 +162,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     #args.device = "cpu"
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Use GPU if available, else use CPU
+    args.sampling = True
     train(args)
 
