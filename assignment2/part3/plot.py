@@ -31,3 +31,4 @@ def plot(results_filename):
     
 if __name__ == '__main__':
     grpah = plot('mlp.txt')
+    plot('gnn.txt')

@@ -267,7 +267,7 @@ def main(**kwargs):
     if not os.path.isfile(filename):
         model, test_loss, permuted_test_loss, val_losses, logging_info = train(model, **kwargs)
         print(test_loss, permuted_test_loss, val_losses, logging_info)
-        torch.save(model, open(filename, 'wb'))
+        torch.save(model, open(args.model + ".sav", 'wb'))
         torch.save(logging_info, filename)
         
     else: 
