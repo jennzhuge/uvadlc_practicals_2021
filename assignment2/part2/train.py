@@ -93,7 +93,7 @@ def train(args):
         model.train()
         train_running_loss = 0.0
         accuracies = 0
-        batches = 0
+        #batches = 0
 
         for chars, labels in data_loader:
             chars = chars.to(args.device)
@@ -110,18 +110,21 @@ def train(args):
             
             train_running_loss += loss.item()
             
-            _, predicted = torch.max(pred.data, 1)
+            _, predicted = torch.max(pred, 1)
             accuracies += (predicted == labels).float().mean()
-            batches += 1
+            #batches += 1
 
         train_loss[epoch] = train_running_loss/len(data_loader)
         train_accuracies[epoch] = accuracies/len(data_loader)
         
         # Sample
+        sents = []
         if args.sampling:
             if epoch in [0, 5, 19]:
                 for temp in [0, .5, 1.0, 2.0]:
-                    print(model.sample(temperature = temp))
+                    sentences = model.sample(temperature = temp)
+                    sents.append(sentence)
+                    print(sentences)
         print(epoch)
     
     # save model
@@ -129,7 +132,7 @@ def train(args):
     pickle.dump(model, open(filename, 'wb'))
     
     # save loss and accuracy
-    results = {'loss': train_loss, 'accs': train_accuracies}
+    results = {'loss': train_loss, 'accs': train_accuracies, 'sentences': sents}
     print(results)
     torch.save(results, 'lossAcc.txt')
         

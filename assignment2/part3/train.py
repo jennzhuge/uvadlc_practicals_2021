@@ -19,6 +19,7 @@ import argparse
 from copy import deepcopy
 from typing import Callable
 
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -68,11 +69,18 @@ def compute_loss(model: nn.Module, molecules: Batch, criterion: Callable) -> tor
     - conditionally compute loss based on model type
     - make sure there are no warnings / errors
     """
-
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-
+    if isinstance(model, MLP):
+        fts = get_mlp_features(molecules)
+        pred = model(fts)
+    else: 
+        fts = get_node_features(molecules)
+        edge_type = torch.argmax(molecules.edge_attr, 1)
+        pred = model(fts, molecules.edge_index, edge_type, molecules.batch)
+    labels = get_labels(molecules).unsqueeze(1)
+    loss = criterion(pred, labels)
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -97,15 +105,19 @@ def evaluate_model(model: nn.Module, data_loader: DataLoader, criterion: Callabl
           average loss independent of batch sizes
           make sure the model is in the correct mode
     """
-
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-
+    running_loss = 0
+    for batch in data_loader:
+        if permute:
+            batch = permute_indices(batch)
+        running_loss += compute_loss(model, batch, criterion).item()
+        
+    avg_loss = running_loss/len(data_loader)
     #######################
     # END OF YOUR CODE    #
     #######################
-
     return avg_loss
 
 
@@ -160,83 +172,71 @@ def train(model: nn.Module, lr: float, batch_size: int, epochs: int, seed: int, 
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    
     # TODO: Initialize loss module and optimizer
-    criterion = nn.CrossEntropyLoss().to(model.device)
+    criterion = nn.MSELoss().to(model.device)
     optimizer = optim.Adam(model.parameters(), lr)
     
     # TODO: Training loop including validation, using evaluate_model
-    train_loss = np.zeros(epochs)
+    #train_loss = np.zeros(epochs)
     val_loss =  np.zeros(epochs)
-    train_accuracies = np.zeros(epochs)
-    val_accuracies = np.zeros(epochs)
     best_i = 0
     best_model = deepcopy(model)
-
+    
     for epoch in range(epochs): 
         model.train()
-        train_running_loss = 0.0
+        #train_running_loss = 0.0
 
         for batch in train_dataloader:
-            print(batch)
-            if model == 'mlp':
-                fts = train.get_mlp_features(batch)
-            else: fts = train.get_dense_adj(batch)
-            fts = fts.to(device)
-            labels = train.get_labels(batch)
-            labels = labels.to(device)
-            
             optimizer.zero_grad()
 
             # forward prop
-            pred = model(fts)
-            loss = loss_module(pred, labels)
+            # pred = model(fts)
+            #loss = criterion(pred, labels)
+            loss = compute_loss(model, batch, criterion)
 
             # backward prop
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            
+            #train_running_loss += loss.item()
 
-            train_running_loss += loss.item()
-            _, predicted = torch.max(pred.data, 1)
-            accuracies += (predicted == labels).float().mean()
-
-        train_loss[epoch] = train_running_loss/len(train_dataloader)
-        train_accuracies[epoch] = accuracies/len(train_dataloader)
+        #train_loss[epoch] = evaluate_model(model, train_dataloader, criterion, False)
         
         model.eval()
-        val_running_loss = 0.0
-        for images, labels in val_loader:
-            images = images.to(device)
-            labels = labels.to(device)
-            #images = torch.reshape(images, shape = (len(images), input_size))
-            optimizer.zero_grad()
+        #val_running_loss = 0.0
+#         for batch in valid_dataloader:
+#             optimizer.zero_grad()
+#             loss = compute_loss(model, batch, criterion)
 
-            #with torch.no_grad():
-            pred = model(images)
-            loss = loss_module(pred, labels)
+        val_loss[epoch] = evaluate_model(model, valid_dataloader, criterion, False)
 
-            val_running_loss += loss.item()
-
-        val_loss[epoch] = val_running_loss/len(val_dataloader)
-        val_accuracies[epoch] = evaluate_model(model, val_dataloader, device)
-
-        if(val_accuracies[epoch] > val_accuracies[best_i]):
+        if(val_loss[epoch] < val_loss[best_i]):
             best_i = epoch
             best_model = deepcopy(model)
+        print(epoch)
             
     # TODO: Do optimization, we used adam with amsgrad. (many should work)
-    val_losses = ...
+    #val_losses = ...
+    
     # TODO: Test best model
-    test_loss = ...
+    test_loss = evaluate_model(best_model, test_dataloader, criterion, False)
+    
     # TODO: Test best model against permuted indices
-    permuted_test_loss = ...
+    permuted_test_loss = evaluate_model(best_model, test_dataloader, criterion, True)
+    
     # TODO: Add any information you might want to save for plotting
-    logging_info = {"train_loss": train_loss, 'val_loss': val_loss, 'train_acc': train_accuracies}
+    logging_info = {'val_loss': val_loss}
+    
+    # save model
+    #filename = 'mlp_model.sav'
+    #torch.save(model, open(filename, 'wb'))
+    
+    # save loss and accuracy
+    torch.save(logging_info, 'mlp.txt')
     #######################
     # END OF YOUR CODE    #
     #######################
-    return model, test_loss, permuted_test_loss, val_losses, logging_info
+    return model, test_loss, permuted_test_loss, val_loss, logging_info
 
 
 def main(**kwargs):
@@ -262,7 +262,17 @@ def main(**kwargs):
         raise NotImplementedError("only mlp and gnn are possible models.")
 
     model.to(device)
-    model, test_loss, permuted_test_loss, val_losses, logging_info = train(model, **kwargs)
+    
+    filename = args.model + ".txt"
+    if not os.path.isfile(filename):
+        model, test_loss, permuted_test_loss, val_losses, logging_info = train(model, **kwargs)
+        print(test_loss, permuted_test_loss, val_losses, logging_info)
+        torch.save(model, open(filename, 'wb'))
+        torch.save(logging_info, filename)
+        
+    else: 
+        results = torch.load(filename)
+        print(results)
 
     # plot the loss curve, etc. below.
 

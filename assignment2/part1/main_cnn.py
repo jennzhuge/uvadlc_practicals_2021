@@ -108,7 +108,6 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
     #######################
     model = get_model(model)
     model.to(device)
-    input_size = 3*32*32
     num_classes = 10
     
     # Load the datasets
@@ -128,8 +127,8 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[90, 135], gamma=0.1)
     
     # Training loop with validation after each epoch. Save the best model, and remember to use the lr scheduler.
-    train_loss = np.zeros(epochs)
-    val_loss =  np.zeros(epochs)
+    #train_loss = np.zeros(epochs)
+   # val_loss =  np.zeros(epochs)
     train_accuracies = np.zeros(epochs)
     val_accuracies = np.zeros(epochs)
     best_i = 0
@@ -142,11 +141,9 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
         for images, labels in train_loader:
             images = images.to(device)
             labels = labels.to(device)
-            #images = torch.reshape(images, shape = (len(images), input_size))
             optimizer.zero_grad()
 
-            #with torch.set_grad_enabled(True):
-                # forward prop
+            # forward prop
             pred = model(images)
             loss = loss_module(pred, labels)
 
@@ -155,26 +152,24 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
             optimizer.step()
             scheduler.step()
 
-            train_running_loss += loss.item()
-
-        train_loss[epoch] = train_running_loss/len(train_loader)
+            #train_running_loss += loss.item()
+        #train_loss[epoch] = train_running_loss/len(train_loader)
         train_accuracies[epoch] = evaluate_model(model, train_loader, device)
         
         model.eval()
-        val_running_loss = 0.0
-        for images, labels in val_loader:
-            images = images.to(device)
-            labels = labels.to(device)
-            #images = torch.reshape(images, shape = (len(images), input_size))
-            optimizer.zero_grad()
+        #val_running_loss = 0.0
+        #for images, labels in val_loader:
+            #images = images.to(device)
+            #labels = labels.to(device)
+            #optimizer.zero_grad()
 
             #with torch.no_grad():
-            pred = model(images)
-            loss = loss_module(pred, labels)
+            #pred = model(images)
+            #loss = loss_module(pred, labels)
 
-            val_running_loss += loss.item()
+            #val_running_loss += loss.item()
 
-        val_loss[epoch] = val_running_loss/len(val_loader)
+        #val_loss[epoch] = val_running_loss/len(val_loader)
         val_accuracies[epoch] = evaluate_model(model, val_loader, device)
 
         if(val_accuracies[epoch] > val_accuracies[best_i]):
@@ -210,22 +205,23 @@ def evaluate_model(model, data_loader, device):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-    input_size = 3*32*32
-    accuracies = 0
+    correct = 0
     total = 0
     
     with torch.no_grad():
         for images, labels in data_loader:
             images = images.to(device)
             labels = labels.to(device)
-            #images = torch.reshape(images, shape = (len(images), input_size))
-            
+
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
-            accuracies += (predicted == labels).float().mean()
-            total += 1
+            correct += (predicted == labels).sum().item()
 
-    accuracy = accuracies/total
+            #accuracies += (predicted == labels).float().mean()
+            #total += 1
+            total += labels.size(0)
+        
+    accuracy = correct/total
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -301,16 +297,16 @@ def main(model_name, lr, batch_size, epochs, data_dir, seed):
     #######################
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     set_seed(seed)
-    print(torch.cuda.is_available())
+    print(model_name, epochs)
     
     # Check for existing model, if none train
-    filename = model_name + 'best_model.sav' 
+    filename = model_name + '_model2.sav' 
     if not os.path.isfile(filename):
         best_mod = train_model(model_name, lr, batch_size, epochs, data_dir, filename, device)
     else: best_mod = pickle.load(open(filename, 'rb'))
     
     # Test best model
-    filename = model_name + 'results.txt' 
+    filename = model_name + 'results2.txt' 
     if not os.path.isfile(filename):
         results = test_model(best_mod, batch_size, data_dir, device, seed)
         torch.save(results, filename)

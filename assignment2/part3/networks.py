@@ -119,23 +119,21 @@ class GNN(nn.Module):
         self.n_edge_fts = n_edge_features
         self.n_hid = n_hidden
         self.n_out = n_output
-        self.n_blocks = num_convolutional_blocks
+        self.n_blocks = num_convolution_blocks
         
-        self.embedder = nn.Embedding(self.vocab_size, self.embed_size)
+        layers = []
+        layers.append((nn.Linear(n_node_features, n_hidden), 'x -> x' ))
+        for conv_layer in range(num_convolution_blocks):
+            layers.append(nn.ReLU())
+            layers.append((geom_nn.RGCNConv(n_hidden, n_hidden, n_edge_features), 'x, edge_index, edge_type -> x'))
+            layers.append(nn.ReLU())
+            layers.append((geom_nn.MFConv(n_hidden, n_hidden), 'x, edge_index -> x'))
+        self.before_pool = geom_nn.Sequential('x, edge_index, edge_type', layers)
         
-        self.layers = nn.ModuleList()
-        for conv_layer in range(num_convolutional_blocks):
-            self.layers.append(nn.ReLU())
-            self.layers.append(geom_nn.RGCNConv())
-            self.layers.append(nn.ReLU())
-            self.layers.append(geom_nn.MFConv())
-        self.layers.append(geom_nn.global_add_pool())
-        #self.layers.append(nn.Linear())
-        #self.layers.append(nn.ReLU())
-        #self.layers.append(nn.Linear(h_hidden, n_output))
-        self.layers.append(MLP(n_hidden, n_output))
+        layers2 = [nn.Linear(n_hidden, n_hidden), nn.ReLU(), nn.Linear(n_hidden, n_output)]
+        self.after_pool = nn.Sequential(*layers2)
         
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         #self.to(self.device)
         #######################
         # END OF YOUR CODE    #
@@ -158,9 +156,9 @@ class GNN(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        
-        for layer in self.layers():
-            out = layer(out)
+        out = self.before_pool(x, edge_index, edge_attr)         
+        out = geom_nn.global_add_pool(out, batch_idx)                            
+        out = self.after_pool(out)
         #######################
         # END OF YOUR CODE    #
         #######################
