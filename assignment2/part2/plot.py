@@ -18,17 +18,22 @@ def plot(results_filename):
     # PUT YOUR CODE HERE  #
     #######################
     results = torch.load(results_filename)
-    line = results['val_loss']
+    lossline = results['loss']
+    accline = results['accs']
 
-    plt.plot(line)
-        
-    plt.legend()
+    plt.plot(lossline)
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
-    plt.title("GNN Validation Loss Curve")
+    plt.title("LSTM Training Loss Curve")
     #fig.set_tight_layout(True)
+    plt.show()
+
+    plt.plot(accline)
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.title("LSTM Training Loss Curve")
     plt.show()
     
 if __name__ == '__main__':
-    grpah = plot('mlp.txt')
-    plot('gnn.txt')
+    grpah = plot('lossAcc.txt')
+    plot('lossAcc_sample.txt')

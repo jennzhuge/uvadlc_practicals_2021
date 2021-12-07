@@ -136,8 +136,7 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
 
     for epoch in range(epochs): 
         model.train()
-        train_running_loss = 0.0
-
+        
         for images, labels in train_loader:
             images = images.to(device)
             labels = labels.to(device)
@@ -150,14 +149,11 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
             # backward prop
             loss.backward()
             optimizer.step()
-            scheduler.step()
 
-            #train_running_loss += loss.item()
-        #train_loss[epoch] = train_running_loss/len(train_loader)
-        train_accuracies[epoch] = evaluate_model(model, train_loader, device)
+        scheduler.step()
+        #train_accuracies[epoch] = evaluate_model(model, train_loader, device)
         
         model.eval()
-        #val_running_loss = 0.0
         #for images, labels in val_loader:
             #images = images.to(device)
             #labels = labels.to(device)
@@ -167,9 +163,6 @@ def train_model(model, lr, batch_size, epochs, data_dir, checkpoint_name, device
             #pred = model(images)
             #loss = loss_module(pred, labels)
 
-            #val_running_loss += loss.item()
-
-        #val_loss[epoch] = val_running_loss/len(val_loader)
         val_accuracies[epoch] = evaluate_model(model, val_loader, device)
 
         if(val_accuracies[epoch] > val_accuracies[best_i]):
@@ -207,6 +200,7 @@ def evaluate_model(model, data_loader, device):
     #######################
     correct = 0
     total = 0
+    accuracies = []
     
     with torch.no_grad():
         for images, labels in data_loader:
@@ -214,14 +208,19 @@ def evaluate_model(model, data_loader, device):
             labels = labels.to(device)
 
             outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            correct += (predicted == labels).sum().item()
+            predicted = torch.argmax(torch.sigmoid(outputs.data), 1)
+            #correct += (predicted == labels).sum().item()
 
-            #accuracies += (predicted == labels).float().mean()
+            accuracies.append(((predicted == labels).float()).cpu().mean())
             #total += 1
-            total += labels.size(0)
-        
-    accuracy = correct/total
+            #total += labels.size(0)
+            
+            #batch_accuracy = (torch.argmax(outputs, axis=1) == labels).sum()/outputs.shape[0]
+            #accuracies.append(batch_accuracy)
+
+        accuracy = np.mean(accuracies)
+
+        # accuracy = accurac
     #######################
     # END OF YOUR CODE    #
     #######################
